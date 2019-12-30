@@ -7,6 +7,7 @@ It is made for the TicTacLights Nano kit which we soldered @ #36c3 at a worksho
 
 Be sure to specify the correct port as the default is specifically set for macOS! In Linux, it will probaby be /dev/ttyUSB0.
 
+```
 >> python3 tictaclights-running.py --help
 usage: tictaclights-running.py [-h] -t TEXT [-c {red,green,blue}] [-s SPEED]
                                [-p PORT]
