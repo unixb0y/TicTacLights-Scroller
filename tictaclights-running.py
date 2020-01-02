@@ -1,5 +1,6 @@
 from PIL import Image
 from letters import *
+from random import *
 import sys, argparse, copy, time, struct, serial
 
 red =   ('07', '00', '00')
@@ -15,6 +16,11 @@ def mapToGreen(line):
 
 def mapToBlue(line):
     return list(map(lambda x: blue if x == 1 else black, line))
+
+def mapToRand(line):
+    return list(map(lambda x: ('0'+str(randint(1, 7)),
+        '0'+str(randint(1, 7)), '0'+str(randint(1, 7)))
+        if x == 1 else black, line))
 
 def getMatrix(par):
     switcher={
@@ -37,22 +43,23 @@ def getMatrix(par):
     }
     return switcher.get(par,"Invalid character")
 
-def createScreen(string, colour):
-    text = []
+def createFullMatrix(string, colour):
+    # combined 2D array of whole text
+    lettermatrix = []
+
+    # list of letters as 2D arrays
+    letters = list(map(lambda x: getMatrix(x), string))
     for i in range(0,8):
+        for j in range(0,len(string)):
+            if j == 0:
+                lettermatrix.append(letters[j][i])
+            else:
+                lettermatrix[i] = lettermatrix[i] + letters[j][i]
+            lettermatrix[i] = lettermatrix[i] + [0]
 
-        letter0 = list(map(colour, getMatrix(string[0])))
-        letter1 = list(map(colour, getMatrix(string[1])))
-        letter2 = list(map(colour, getMatrix(string[2])))
+    lettermatrix = list(map(colour, lettermatrix))
+    return lettermatrix
 
-        temp = copy.deepcopy(letter0[i])
-        temp.append(black)
-        temp += copy.deepcopy(letter1[i])
-        temp.append(black)
-        temp += copy.deepcopy(letter2[i])
-        temp.append(black)
-        text.append(temp)
-    return text
 
 def sendPacket(textMatrix, port):
     packet = bytes.fromhex('235426660008001200030007')
@@ -85,21 +92,31 @@ def printText(text, colour, speed, port):
         colouringFunc = mapToGreen
     elif colour == 'blue':
         colouringFunc = mapToBlue
+    elif colour == 'random':
+        colouringFunc = mapToRand
 
+    screen = createFullMatrix(text, colouringFunc)
     while True:
-        for i in range(0, len(text)):
-            textToShow = text[i:len(text)] + (text[0:i] if i>0 else '')
-            screen = createScreen(textToShow, colouringFunc)
-            sendPacket(screen, port)
-            time.sleep(speed)
+        for i in range(0, len(screen[0])):
+            if i%2==0:
+                continue
+            else:
+                temp = copy.deepcopy(screen)
+                for line in temp:
+                    cache = line[:i]
+                    del line[:i]
+                    line += cache
+
+                sendPacket(temp, port)
+                time.sleep(speed)
 
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--text', required=True,
         help='the text to display')
     parser.add_argument('-c', '--colour', default='blue',
-        help='the preferred colour', choices=['red','green','blue'])
-    parser.add_argument('-s', '--speed', default=0.2, type=float,
+        help='the preferred colour', choices=['red','green','blue','random'])
+    parser.add_argument('-s', '--speed', default=0.05, type=float,
         help='the preferred speed')
     parser.add_argument('-p', '--port', default='/dev/tty.usbserial-DM031PBM',
         help='the port where your TicTacLights is attached')
